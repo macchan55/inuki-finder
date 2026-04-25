@@ -274,6 +274,112 @@ def scrape_inshokuten():
 
 
 # ─────────────────────────────────────────
+# テンポスマート (temposmart.jp)
+# ─────────────────────────────────────────
+
+TEMPOSMART_WARDS = {
+    '千代田区': 13101,
+    '中央区':   13102,
+    '港区':     13103,
+    '品川区':   13109,
+    '目黒区':   13110,
+    '渋谷区':   13113,
+}
+
+
+def scrape_temposmart():
+    base = 'https://www.temposmart.jp'
+    results = []
+
+    for ward, code in TEMPOSMART_WARDS.items():
+        page = 1
+        while page <= 10:
+            url = (
+                f'{base}/estates/pref/13/district/{code}?status=inuki'
+                + (f'&page={page}' if page > 1 else '')
+            )
+            try:
+                resp = _get(url)
+                soup = BeautifulSoup(resp.text, 'html.parser')
+
+                cards = soup.find_all('li', class_='estatesMain__estateList--li')
+                if not cards:
+                    break
+
+                for card in cards:
+                    # 物件ID・URL
+                    id_span = card.find(class_='estateItem__estateId--value')
+                    prop_id_num = id_span.get_text(strip=True) if id_span else None
+                    if not prop_id_num:
+                        link = card.find('a', href=re.compile(r'/estates/\d+'))
+                        if not link:
+                            continue
+                        m = re.search(r'/estates/(\d+)', link['href'])
+                        prop_id_num = m.group(1) if m else None
+                    if not prop_id_num:
+                        continue
+
+                    prop_url = f'{base}/estates/{prop_id_num}'
+
+                    # タイトル
+                    h3 = card.find('h3', class_='estateItem__estateTitle')
+                    title = h3.get_text(strip=True) if h3 else ''
+
+                    text = card.get_text(' ', strip=True)
+
+                    # 居抜き以外はスキップ
+                    if 'スケルトン' in title and '居抜き' not in title:
+                        continue
+
+                    # 賃料
+                    rent_m = re.search(r'賃料\s*([\d,]+)\s*円', text)
+                    rent = rent_m.group(1).replace(',', '') + '円' if rent_m else _extract_rent(text)
+
+                    # 面積
+                    area_m = re.search(r'面積\s*([\d.]+坪)', text)
+                    area = area_m.group(1) if area_m else _extract_area(text)
+
+                    # 最寄り駅
+                    station_m = re.search(r'最寄駅\s*(\S+駅)\s*徒歩\s*(\d+)分', text)
+                    station = f'{station_m.group(1)} 徒歩{station_m.group(2)}分' if station_m else ''
+
+                    # 画像 (data-srcにURLあり)
+                    img = card.find('img', attrs={'data-src': True})
+                    img_src = img['data-src'] if img else ''
+
+                    results.append({
+                        'id':        f'temposmart-{prop_id_num}',
+                        'title':     title,
+                        'address':   ward,
+                        'ward':      ward,
+                        'rent':      rent,
+                        'area':      area,
+                        'station':   station,
+                        'url':       prop_url,
+                        'source':    'テンポスマート',
+                        'image_url': img_src,
+                    })
+
+                # 次ページ確認
+                next_btn = soup.find('a', class_=re.compile(r'next', re.I))
+                if not next_btn:
+                    next_btn = soup.find('a', string=re.compile(r'次のページ|次へ|›'))
+                if not next_btn:
+                    break
+                page += 1
+                time.sleep(1.5)
+
+            except Exception as e:
+                logger.error(f'テンポスマート {ward} p{page}: {e}')
+                break
+
+        time.sleep(1)
+
+    logger.info(f'テンポスマート: {len(results)}件')
+    return results
+
+
+# ─────────────────────────────────────────
 # まとめて実行
 # ─────────────────────────────────────────
 
@@ -281,5 +387,6 @@ def run_all():
     props = []
     props += scrape_inuki_ichiba()
     props += scrape_inshokuten()
+    props += scrape_temposmart()
     logger.info(f'合計: {len(props)}件取得')
     return props
