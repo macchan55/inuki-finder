@@ -45,11 +45,6 @@ scheduler = BackgroundScheduler(timezone='Asia/Tokyo')
 scheduler.add_job(run_scrape, 'cron', hour=8, minute=0)
 scheduler.start()
 
-# 初回起動時にDBが空なら自動スクレイピング
-if database.count_properties() == 0:
-    t = threading.Thread(target=run_scrape, daemon=True)
-    t.start()
-
 
 @app.route('/')
 def index():
@@ -63,6 +58,7 @@ def index():
         selected_ward=ward,
         last_scraped=last_scraped,
         scraping=_scraping,
+        empty_db=(database.count_properties() == 0),
     )
 
 

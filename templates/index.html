@@ -219,7 +219,11 @@
 {% if scraping %}
 <div class="scraping-banner">
   <span class="spinner"></span>
-  物件情報を取得しています。完了後に自動で反映されます…
+  物件情報を取得しています。完了後に自動で反映されます（数分かかります）…
+</div>
+{% elif empty_db %}
+<div class="scraping-banner" style="background:#fef3c7; border-color:#f59e0b; color:#92400e;">
+  ⚠️ まだ物件データがありません。右上の「今すぐ更新」ボタンを押して取得してください。
 </div>
 {% endif %}
 
