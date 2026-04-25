@@ -380,6 +380,105 @@ def scrape_temposmart():
 
 
 # ─────────────────────────────────────────
+# 居抜き本舗 (inuki-honpo.jp)
+# ─────────────────────────────────────────
+
+INUKI_HONPO_WARDS = {
+    '渋谷区':  'exul=115030',
+    '中央区':  'exul=115065',
+    '港区':    'exul=115008',
+    '目黒区':  'exul=115012',
+    '品川区':  'exul=115598',
+    '千代田区':'exul=115044',
+}
+
+
+def scrape_inuki_honpo():
+    base = 'https://www.inuki-honpo.jp'
+    results = []
+
+    for ward, slug in INUKI_HONPO_WARDS.items():
+        page = 1
+        while page <= 10:
+            url = f'{base}/rent/{slug}/' + (f'?page={page}' if page > 1 else '')
+            try:
+                resp = _get(url)
+                soup = BeautifulSoup(resp.text, 'html.parser')
+
+                # table.bukkenListTable が1物件1テーブル
+                tables = soup.find_all('table', class_='bukkenListTable')
+                if not tables:
+                    break
+
+                for table in tables:
+                    # 物件リンク
+                    link = table.find('a', href=re.compile(r'/rent/\d+'))
+                    if not link:
+                        continue
+                    m = re.search(r'/rent/(\d+)', link['href'])
+                    if not m:
+                        continue
+
+                    text = table.get_text(' ', strip=True)
+
+                    # タイトル（業態名）
+                    title_tag = table.find(class_='bukkenListCat')
+                    title = title_tag.get_text(strip=True) if title_tag else link.get_text(strip=True)
+
+                    # 物件番号から住所を含む行を探す
+                    num_tag = table.find(class_='bukkenListNum')
+                    addr_m = re.search(r'(?:渋谷区|中央区|港区|目黒区|品川区|千代田区)[^\s　]+', text)
+                    address = addr_m.group(0) if addr_m else ward
+
+                    # 最寄り駅（p.bukkenListName）
+                    name_tag = table.find(class_='bukkenListName')
+                    station = name_tag.get_text(strip=True) if name_tag else ''
+
+                    # 賃料
+                    rent_m = re.search(r'([\d,]+)\s*円', text)
+                    rent = rent_m.group(1).replace(',', '') + '円' if rent_m else ''
+
+                    # 面積
+                    area_m = re.search(r'([\d.]+)坪', text)
+                    area = area_m.group(0) if area_m else _extract_area(text)
+
+                    # 画像
+                    img = table.find('img', src=re.compile(r'\.(jpg|jpeg|png|webp)', re.I))
+                    img_src = img.get('src', '') if img else ''
+                    if img_src and not img_src.startswith('http'):
+                        img_src = base + img_src
+
+                    results.append({
+                        'id':        f'honpo-{m.group(1)}',
+                        'title':     f'{ward} {title}',
+                        'address':   address,
+                        'ward':      ward,
+                        'rent':      rent,
+                        'area':      area,
+                        'station':   station,
+                        'url':       base + link['href'],
+                        'source':    '居抜き本舗',
+                        'image_url': img_src,
+                    })
+
+                # 次ページ確認
+                next_btn = soup.find('a', string=re.compile(r'次のページ|次へ|NEXT|›'))
+                if not next_btn:
+                    break
+                page += 1
+                time.sleep(1.5)
+
+            except Exception as e:
+                logger.error(f'居抜き本舗 {ward} p{page}: {e}')
+                break
+
+        time.sleep(1)
+
+    logger.info(f'居抜き本舗: {len(results)}件')
+    return results
+
+
+# ─────────────────────────────────────────
 # まとめて実行
 # ─────────────────────────────────────────
 
@@ -388,5 +487,6 @@ def run_all():
     props += scrape_inuki_ichiba()
     props += scrape_inshokuten()
     props += scrape_temposmart()
+    props += scrape_inuki_honpo()
     logger.info(f'合計: {len(props)}件取得')
     return props
