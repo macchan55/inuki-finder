@@ -228,9 +228,9 @@
 {% endif %}
 
 <nav class="filters">
-  <a href="/?ward=all" class="filter-btn {% if selected_ward == 'all' %}active{% endif %}">すべて</a>
+  <a href="?ward=all" class="filter-btn {% if selected_ward == 'all' %}active{% endif %}">すべて</a>
   {% for w in wards %}
-  <a href="/?ward={{ w }}" class="filter-btn {% if selected_ward == w %}active{% endif %}">{{ w }}</a>
+  <a href="?ward={{ w }}" class="filter-btn {% if selected_ward == w %}active{% endif %}">{{ w }}</a>
   {% endfor %}
 </nav>
 
