@@ -67,6 +67,47 @@
     .filter-btn:hover { border-color: #1a1a2e; color: #1a1a2e; }
     .filter-btn.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
 
+    /* 詳細フィルター */
+    .detail-filters {
+      background: #f8f9fa;
+      padding: 12px 24px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+    .detail-filters label { color: #666; font-weight: 600; }
+    .detail-filters select, .detail-filters input[type="number"] {
+      padding: 5px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      background: #fff;
+      width: 110px;
+    }
+    .detail-filters .filter-group { display: flex; align-items: center; gap: 6px; }
+    .btn-filter {
+      padding: 6px 14px;
+      background: #1a1a2e;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .btn-reset-filter {
+      padding: 6px 10px;
+      background: #eee;
+      color: #555;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+    }
+
     /* 物件数 */
     .result-info {
       padding: 12px 24px;
@@ -234,6 +275,38 @@
   {% endfor %}
 </nav>
 
+<form class="detail-filters" method="get" action="">
+  <input type="hidden" name="ward" value="{{ selected_ward }}">
+
+  <div class="filter-group">
+    <label>徒歩</label>
+    <select name="max_walk">
+      <option value="">制限なし</option>
+      <option value="3" {% if max_walk == 3 %}selected{% endif %}>3分以内</option>
+      <option value="5" {% if max_walk == 5 %}selected{% endif %}>5分以内</option>
+      <option value="7" {% if max_walk == 7 %}selected{% endif %}>7分以内</option>
+      <option value="10" {% if max_walk == 10 %}selected{% endif %}>10分以内</option>
+      <option value="15" {% if max_walk == 15 %}selected{% endif %}>15分以内</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label>面積</label>
+    <input type="number" name="min_area" placeholder="下限(坪)" min="0" step="0.5" value="{{ min_area }}">
+    <span>〜</span>
+    <input type="number" name="max_area" placeholder="上限(坪)" min="0" step="0.5" value="{{ max_area }}">
+  </div>
+
+  <div class="filter-group">
+    <label>坪単価</label>
+    <input type="number" name="max_tsubo" placeholder="上限(万円/坪)" min="0" value="{{ max_tsubo }}">
+    <span>以下</span>
+  </div>
+
+  <button type="submit" class="btn-filter">絞込</button>
+  <a href="?ward={{ selected_ward }}" class="btn-reset-filter">リセット</a>
+</form>
+
 <div class="result-info">
   {{ properties|length }} 件表示
 </div>
@@ -271,6 +344,12 @@
           <div class="detail-row">
             <span class="detail-label">面積</span>
             <span class="detail-val">{{ p.area }}</span>
+          </div>
+          {% endif %}
+          {% if p.tsubo_price %}
+          <div class="detail-row">
+            <span class="detail-label">坪単価</span>
+            <span class="detail-val">{{ p.tsubo_price }}万円/坪</span>
           </div>
           {% endif %}
           {% if p.station %}

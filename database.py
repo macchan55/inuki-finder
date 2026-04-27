@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from datetime import datetime
 
@@ -51,7 +52,39 @@ def upsert_property(prop):
     conn.close()
 
 
-def get_properties(ward=None, limit=300):
+def _parse_walk_minutes(station):
+    if not station:
+        return None
+    m = re.search(r'徒歩(\d+)分', station)
+    return int(m.group(1)) if m else None
+
+
+def _parse_area_tsubo(area):
+    if not area:
+        return None
+    m = re.search(r'([\d.]+)坪', area)
+    if m:
+        return float(m.group(1))
+    m = re.search(r'([\d.]+)㎡', area)
+    if m:
+        return round(float(m.group(1)) / 3.3058, 2)
+    return None
+
+
+def _parse_rent_yen(rent):
+    if not rent:
+        return None
+    cleaned = rent.replace(',', '').replace(' ', '')
+    m = re.search(r'([\d]+)円', cleaned)
+    if m:
+        return int(m.group(1))
+    m = re.search(r'([\d.]+)万', cleaned)
+    if m:
+        return int(float(m.group(1)) * 10000)
+    return None
+
+
+def get_properties(ward=None, limit=1000, max_walk=None, min_area=None, max_area=None, max_tsubo_price=None):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
@@ -64,7 +97,30 @@ def get_properties(ward=None, limit=300):
         c.execute('SELECT * FROM properties ORDER BY created_at DESC LIMIT ?', (limit,))
     rows = c.fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+
+    result = []
+    for row in rows:
+        d = dict(row)
+        walk = _parse_walk_minutes(d.get('station', ''))
+        area = _parse_area_tsubo(d.get('area', ''))
+        rent = _parse_rent_yen(d.get('rent', ''))
+
+        d['walk_minutes'] = walk
+        d['area_tsubo'] = area
+        d['tsubo_price'] = round(rent / area / 10000, 1) if (rent and area and area > 0) else None
+
+        if max_walk is not None and (walk is None or walk > max_walk):
+            continue
+        if min_area is not None and (area is None or area < min_area):
+            continue
+        if max_area is not None and area is not None and area > max_area:
+            continue
+        if max_tsubo_price is not None and d['tsubo_price'] is not None and d['tsubo_price'] > max_tsubo_price:
+            continue
+
+        result.append(d)
+
+    return result
 
 
 def get_last_scraped():

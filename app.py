@@ -46,10 +46,32 @@ scheduler.add_job(run_scrape, 'cron', hour=8, minute=0)
 scheduler.start()
 
 
+def _scrape_on_startup():
+    """起動時にDBが空であれば自動でスクレイピングを実行する"""
+    if database.count_properties() == 0:
+        logger.info('DBが空のため起動時スクレイピングを開始')
+        t = threading.Thread(target=run_scrape, daemon=True)
+        t.start()
+
+
+_scrape_on_startup()
+
+
 @app.route('/')
 def index():
-    ward = request.args.get('ward', 'all')
-    props = database.get_properties(ward)
+    ward         = request.args.get('ward', 'all')
+    max_walk     = request.args.get('max_walk', type=int)
+    min_area     = request.args.get('min_area', type=float)
+    max_area     = request.args.get('max_area', type=float)
+    max_tsubo    = request.args.get('max_tsubo', type=int)
+
+    props = database.get_properties(
+        ward,
+        max_walk=max_walk,
+        min_area=min_area,
+        max_area=max_area,
+        max_tsubo_price=max_tsubo,
+    )
     last_scraped = database.get_last_scraped()
     return render_template(
         'index.html',
@@ -59,6 +81,10 @@ def index():
         last_scraped=last_scraped,
         scraping=_scraping,
         empty_db=(database.count_properties() == 0),
+        max_walk=max_walk or '',
+        min_area=min_area or '',
+        max_area=max_area or '',
+        max_tsubo=max_tsubo or '',
     )
 
 
