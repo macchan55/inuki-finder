@@ -474,6 +474,349 @@ def scrape_temposmart():
 
 
 # ─────────────────────────────────────────
+# 居抜き店舗ABC
+# present-condition[]=居抜き & pref[]=27(大阪府) で絞り込む。
+# 所在地は会員登録しないと番地以降が隠されるが、区までは表示される。
+# ページネーションはJSのボタン式でURLに次ページのリンクが無いため、
+# 1ページ目の「Nページ目に移動」から最大ページ数を読み取って回す。
+# ─────────────────────────────────────────
+def scrape_abc_tenpo():
+    base = 'https://www.abc-tenpo.com'
+    query = 'present-condition%5B%5D=%E5%B1%85%E6%8A%9C%E3%81%8D&pref%5B%5D=27'
+    results = []
+    seen_ids = set()
+    max_page = 1
+
+    page = 1
+    while page <= 10:
+        url = f'{base}/kansai/property/search?{query}&page={page}'
+        try:
+            resp = _get(url)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            cards = soup.find_all('article', class_='c-property-box')
+            if not cards:
+                break
+
+            if page == 1:
+                page_nums = [int(n) for n in re.findall(r'(\d+)ページ目に移動', resp.text)]
+                if page_nums:
+                    max_page = max(page_nums)
+
+            new_in_page = 0
+            for card in cards:
+                link = card.find('a', class_='c-property-box__anchor')
+                if not link:
+                    continue
+                m = re.search(r'/property/view/(\d+)', link['href'])
+                if not m:
+                    continue
+                prop_id = m.group(1)
+                if prop_id in seen_ids:
+                    continue
+                seen_ids.add(prop_id)
+                new_in_page += 1
+
+                title_tag = card.find(class_='c-property-box-header__title')
+                title = title_tag.get_text(strip=True) if title_tag else ''
+
+                address = station = rent = area = ''
+                for dl in card.find_all('dl', class_='c-property-box-table__def'):
+                    dt = dl.find('dt')
+                    dd = dl.find('dd')
+                    if not dt or not dd:
+                        continue
+                    label = dt.get_text(strip=True)
+                    value = dd.get_text(strip=True)
+                    if label == '最寄り駅':
+                        station = value
+                    elif label == '所在地':
+                        address = value.split('会員登録')[0].strip()
+                    elif label == '賃料':
+                        rent = value
+                    elif label == '面積':
+                        area = value
+
+                img_wrap = card.find(class_='c-property-box-main__img')
+                img_tag = img_wrap.find('img') if img_wrap else None
+                img_src = img_tag.get('src', '') if img_tag else ''
+                if img_src and not img_src.startswith('http'):
+                    img_src = base + img_src
+
+                detected = _detect_ward(address + title) or '大阪府'
+                results.append({
+                    'id':        f'abctenpo-{prop_id}',
+                    'title':     title or address,
+                    'address':   address or detected,
+                    'ward':      detected,
+                    'rent':      rent,
+                    'area':      area,
+                    'station':   station,
+                    'url':       f'{base}/property/view/{prop_id}',
+                    'source':    '居抜き店舗ABC',
+                    'image_url': img_src,
+                })
+
+            if page >= max_page or new_in_page == 0:
+                break
+            page += 1
+            time.sleep(1.5)
+
+        except Exception as e:
+            logger.error(f'居抜き店舗ABC p{page}: {e}')
+            break
+
+    logger.info(f'居抜き店舗ABC: {len(results)}件')
+    return results
+
+
+# ─────────────────────────────────────────
+# 店舗情報館（関西インベスト）
+# サイト自体が居抜き専門のため個別フィルタは無い。
+# 大阪以外の関西(奈良・兵庫など)も混在するため、
+# 既知の区に当てはまらない場合は住所そのものをwardにする。
+# ─────────────────────────────────────────
+def scrape_k_invest():
+    base = 'https://www.k-invest.co.jp'
+    results = []
+
+    page = 1
+    while page <= 10:
+        url = f'{base}/article/' if page == 1 else f'{base}/article/page/{page}/'
+        try:
+            resp = _get(url)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            cards = soup.find_all('div', class_='article')
+            if not cards:
+                break
+
+            for card in cards:
+                h3 = card.find('h3', class_='catch')
+                link = h3.find('a') if h3 else None
+                if not link:
+                    continue
+                m = re.search(r'/article/(\d+)/', link.get('href', ''))
+                if not m:
+                    continue
+                title = link.get_text(strip=True)
+
+                address = station = area = rent = ''
+                for dl in card.find_all('dl'):
+                    dt = dl.find('dt')
+                    dd = dl.find('dd')
+                    if not dt or not dd:
+                        continue
+                    label = dt.get_text(strip=True)
+                    value = dd.get_text(' ', strip=True)
+                    if label == '所在地':
+                        address = value
+                    elif '最寄り駅' in label:
+                        station = value
+                    elif label == '面積':
+                        area = value
+                    elif label == '賃料':
+                        rent = value.split('（')[0].strip()
+
+                img_wrap = card.find(class_='ph')
+                img_tag = img_wrap.find('img') if img_wrap else None
+                img_src = img_tag.get('src', '') if img_tag else ''
+
+                detected = _detect_ward(address + title) or address or '関西'
+                results.append({
+                    'id':        f'kinvest-{m.group(1)}',
+                    'title':     title,
+                    'address':   address or detected,
+                    'ward':      detected,
+                    'rent':      rent,
+                    'area':      area,
+                    'station':   station,
+                    'url':       f'{base}/article/{m.group(1)}/',
+                    'source':    '店舗情報館',
+                    'image_url': img_src,
+                })
+
+            page += 1
+            time.sleep(1.5)
+
+        except Exception as e:
+            logger.error(f'店舗情報館 p{page}: {e}')
+            break
+
+    logger.info(f'店舗情報館: {len(results)}件')
+    return results
+
+
+# ─────────────────────────────────────────
+# ベンチャースペースラボ
+# 業態カテゴリ(0〜9)ごとにページが分かれており、横断的な「全件」URLが無いため
+# カテゴリを総当たりする。一覧に住所は無く最寄り駅のみのため、区の判定はできず
+# 大阪府の総称タグにする。居抜きアイコン(icon_inuki.gif、末尾が-noでないもの)が
+# 無い物件(スケルトン等)は除外する。
+# ─────────────────────────────────────────
+def scrape_vslab():
+    base = 'https://www.vslab.jp'
+    results = []
+    seen_ids = set()
+
+    for category in range(10):
+        page = 1
+        while page <= 10:
+            url = f'{base}/lpo/lpo.php?page={page}&category={category}'
+            try:
+                resp = _get(url)
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                title_tds = soup.find_all('td', class_='property_title')
+                if not title_tds:
+                    break
+
+                new_in_page = 0
+                for title_td in title_tds:
+                    title_tr = title_td.find_parent('tr')
+                    data_tr = title_tr.find_next_sibling('tr') if title_tr else None
+                    if not data_tr:
+                        continue
+
+                    chara_td = data_tr.find('td', class_='property_chara')
+                    if not chara_td or not chara_td.find('img', src=re.compile(r'icon_inuki\.gif$')):
+                        continue
+
+                    m = re.search(r'detail\.php\?id=(\d+)', str(data_tr))
+                    if not m:
+                        continue
+                    prop_id = m.group(1)
+                    if prop_id in seen_ids:
+                        continue
+                    seen_ids.add(prop_id)
+                    new_in_page += 1
+
+                    eki_dd = title_td.find('dd', class_='eki')
+                    station = eki_dd.get_text(strip=True) if eki_dd else ''
+
+                    price_td = data_tr.find('td', class_='property_price')
+                    rent_dd = price_td.find('dd') if price_td else None
+                    rent = rent_dd.get_text(strip=True) if rent_dd else ''
+
+                    tds = data_tr.find_all('td', recursive=False)
+                    area = tds[3].get_text(strip=True) if len(tds) >= 4 else ''
+
+                    point_td = data_tr.find('td', class_='property_point')
+                    desc_tag = point_td.find('p') if point_td else None
+                    desc = desc_tag.get_text(strip=True) if desc_tag else ''
+
+                    img_td = data_tr.find('td', class_='property_pic')
+                    img_tag = img_td.find('img') if img_td else None
+                    img_src = img_tag.get('src', '') if img_tag else ''
+                    if img_src and not img_src.startswith('http'):
+                        img_src = base + img_src
+
+                    detected = _detect_ward(station + desc) or '大阪府'
+                    results.append({
+                        'id':        f'vslab-{prop_id}',
+                        'title':     desc[:40] or station,
+                        'address':   detected,
+                        'ward':      detected,
+                        'rent':      rent,
+                        'area':      area,
+                        'station':   station,
+                        'url':       f'{base}/lpo/detail.php?id={prop_id}',
+                        'source':    'ベンチャースペースラボ',
+                        'image_url': img_src,
+                    })
+
+                if new_in_page == 0:
+                    break
+                page += 1
+                time.sleep(1.5)
+
+            except Exception as e:
+                logger.error(f'ベンチャースペースラボ category{category} p{page}: {e}')
+                break
+
+        time.sleep(1)
+
+    logger.info(f'ベンチャースペースラボ: {len(results)}件')
+    return results
+
+
+# ─────────────────────────────────────────
+# 居抜き店舗.com
+# ページはEUC-JPでエンコードされているためレスポンスのencodingを明示する。
+# 賃料は「-」(要問合せ)のことが多く、その場合は空文字にする。
+# ─────────────────────────────────────────
+def scrape_inuki_tenpo():
+    base = 'https://www.inuki-tenpo.com'
+    results = []
+
+    offset = 0
+    while offset <= 240:  # 24件/ページ換算で最大10ページ相当
+        url = f'{base}/list?offset={offset}&cat=list' if offset > 0 else f'{base}/list'
+        try:
+            resp = _get(url)
+            resp.encoding = 'euc-jp'
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            cards = soup.find_all('article', class_='bk_box')
+            if not cards:
+                break
+
+            for card in cards:
+                link = card.find('a', href=re.compile(r'^/detail_past-shops/\d+'))
+                if not link:
+                    continue
+                m = re.search(r'/detail_past-shops/(\d+)', link['href'])
+                if not m:
+                    continue
+
+                h4 = card.find('h4', class_='bk_h4')
+                title_tag = h4.find('a') if h4 else None
+                title = title_tag.get_text(strip=True) if title_tag else ''
+
+                p_tag = card.find('p', class_='bk_p')
+                addr_span = p_tag.find('span', class_='b') if p_tag else None
+                address = addr_span.get_text(strip=True) if addr_span else ''
+
+                fig = card.find('figcaption')
+                rent_tag = fig.find('strong', class_='bk_y') if fig else None
+                rent_num = rent_tag.get_text(strip=True) if rent_tag else ''
+                rent = f'{rent_num}万円' if rent_num and rent_num != '-' else ''
+
+                area_tag = fig.find('strong', class_='bk_t') if fig else None
+                area_num = area_tag.get_text(strip=True) if area_tag else ''
+                area = f'{area_num}坪' if area_num else ''
+
+                station_span = fig.find('span', class_='bk_s') if fig else None
+                station = station_span.get_text(strip=True) if station_span else ''
+
+                img_div = card.find('div', class_='bk_img')
+                img_tag = img_div.find('img') if img_div else None
+                img_src = (img_tag.get('data-src') or img_tag.get('src', '')) if img_tag else ''
+                if img_src and not img_src.startswith('http'):
+                    img_src = base + img_src
+
+                detected = _detect_ward(address + title) or '大阪府'
+                results.append({
+                    'id':        f'inukitenpo-{m.group(1)}',
+                    'title':     title,
+                    'address':   address or detected,
+                    'ward':      detected,
+                    'rent':      rent,
+                    'area':      area,
+                    'station':   station,
+                    'url':       f'{base}/detail_past-shops/{m.group(1)}',
+                    'source':    '居抜き店舗.com',
+                    'image_url': img_src,
+                })
+
+            offset += 24
+            time.sleep(1.5)
+
+        except Exception as e:
+            logger.error(f'居抜き店舗.com offset{offset}: {e}')
+            break
+
+    logger.info(f'居抜き店舗.com: {len(results)}件')
+    return results
+
+
+# ─────────────────────────────────────────
 # テナントショップ
 # ─────────────────────────────────────────
 def scrape_tenant_shop():
@@ -636,5 +979,9 @@ def run_all():
     props += scrape_temposmart()
     props += scrape_inuki_honpo()
     props += scrape_tenant_shop()
+    props += scrape_abc_tenpo()
+    props += scrape_k_invest()
+    props += scrape_vslab()
+    props += scrape_inuki_tenpo()
     logger.info(f'合計: {len(props)}件取得')
     return props
