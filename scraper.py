@@ -16,15 +16,162 @@ HEADERS = {
     'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
 }
 
-TARGET_WARDS = ['渋谷区', '中央区', '目黒区', '品川区', '千代田区', '港区']
+# ─────────────────────────────────────────
+# エリア定義
+# UI上のグループ名 → 実際の区・県名リスト
+# ─────────────────────────────────────────
 
-INUKI_WARD_SLUGS = {
-    '渋谷区': 'shibuyaku',
-    '中央区': 'chuoku',
-    '目黒区': 'meguroku',
-    '品川区': 'shinagawaku',
+# UIで表示するチェックボックス用グループ
+AREA_GROUPS = {
+    '港区':      ['港区'],
+    '目黒区':    ['目黒区'],
+    '渋谷区':    ['渋谷区'],
+    '世田谷区':  ['世田谷区'],
+    '品川区':    ['品川区'],
+    '中央区':    ['中央区'],
+    '千代田区':  ['千代田区'],
+    '豊島区':    ['豊島区'],
+    'その他23区': [
+        '新宿区', '文京区', '台東区', '墨田区', '江東区',
+        '大田区', '中野区', '杉並区', '北区', '荒川区',
+        '板橋区', '練馬区', '足立区', '葛飾区', '江戸川区',
+    ],
+    '神奈川県':  ['神奈川県'],
+    '千葉県':    ['千葉県'],
+    '埼玉県':    ['埼玉県'],
+    '山梨県':    ['山梨県'],
+    '大阪 北区':   ['大阪市北区'],
+    '大阪 中央区': ['大阪市中央区'],
+    '大阪 西区':   ['大阪市西区'],
+    '大阪 福島区': ['大阪市福島区'],
+    '大阪 その他': [
+        '大阪市都島区', '大阪市此花区', '大阪市港区', '大阪市大正区',
+        '大阪市天王寺区', '大阪市浪速区', '大阪市西淀川区', '大阪市東淀川区',
+        '大阪市東成区', '大阪市生野区', '大阪市旭区', '大阪市城東区',
+        '大阪市阿倍野区', '大阪市住吉区', '大阪市東住吉区', '大阪市西成区',
+        '大阪市淀川区', '大阪市鶴見区', '大阪市住之江区', '大阪市平野区',
+    ],
+}
+
+# ward値 → UIグループ名 の逆引き
+WARD_TO_GROUP = {}
+for _grp, _wards in AREA_GROUPS.items():
+    for _w in _wards:
+        WARD_TO_GROUP[_w] = _grp
+
+# 長い区名（例: 大阪市港区）を短い区名（例: 港区）より先に判定させるため長さ降順にする
+# （東京都港区と大阪市港区のように部分文字列が重複するケースの誤判定を防ぐ）
+ALL_WARDS = sorted(
+    [w for wards in AREA_GROUPS.values() for w in wards],
+    key=len, reverse=True,
+)
+
+# ─────────────────────────────────────────
+# 居抜き市場 スラグマップ
+# ─────────────────────────────────────────
+INUKI_ICHIBA_SLUGS = {
     '千代田区': 'chiyodaku',
-    '港区': 'minatoku',
+    '中央区':   'chuoku',
+    '港区':     'minatoku',
+    '新宿区':   'shinjukuku',
+    '文京区':   'bunkyoku',
+    '台東区':   'taitoku',
+    '墨田区':   'sumidaku',
+    '江東区':   'kotoku',
+    '品川区':   'shinagawaku',
+    '目黒区':   'meguroku',
+    '大田区':   'otaku',
+    '世田谷区': 'setagayaku',
+    '渋谷区':   'shibuyaku',
+    '中野区':   'nakanoku',
+    '杉並区':   'suginamiku',
+    '豊島区':   'toshimaku',
+    '北区':     'kitaku',
+    '荒川区':   'arakawaku',
+    '板橋区':   'itabashiku',
+    '練馬区':   'nerimaku',
+    '足立区':   'adachiku',
+    '葛飾区':   'katsushikaku',
+    '江戸川区': 'edogawaku',
+    # 神奈川・千葉・埼玉は都市レベルスラグで代表取得
+    '神奈川県': 'yokohamashi-nishiku',
+    '千葉県':   'chibashi-chuoku',
+    '埼玉県':   'saitamashi-omiyaku',
+}
+
+# ─────────────────────────────────────────
+# 飲食店.com エリアスラグ
+# 値は (リージョン, エリアスラグ, 区コード) の3要素タプル
+# 区コードがNoneの場合はエリア全体を一括取得する
+# ─────────────────────────────────────────
+INSHOKUTEN_AREAS = {
+    '港区':     ('kanto', 'local-23ward', 4),
+    '渋谷区':   ('kanto', 'local-23ward', 6),
+    '千代田区': ('kanto', 'local-23ward', 10),
+    '中央区':   ('kanto', 'local-23ward', 14),
+    '品川区':   ('kanto', 'local-23ward', 17),
+    '目黒区':   ('kanto', 'local-23ward', 22),
+    '世田谷区': ('kanto', 'local-23ward', 30),
+    '豊島区':   ('kanto', 'local-23ward', 16),
+    # その他23区は一括で取得
+    'その他23区_all': ('kanto', 'local-23ward', None),
+    '神奈川県': ('kanto', 'local-yokohama_kawasaki', None),
+    '千葉県':   ('kanto', 'local-chiba', None),
+    '埼玉県':   ('kanto', 'local-saitama', None),
+    # 大阪
+    '大阪市北区':   ('kansai', 'local-osaka', 235),
+    '大阪市中央区': ('kansai', 'local-osaka', 236),
+    '大阪市西区':   ('kansai', 'local-osaka', 216),
+    '大阪市福島区': ('kansai', 'local-osaka', 214),
+    'その他大阪_all': ('kansai', 'local-osaka', None),
+}
+
+# ─────────────────────────────────────────
+# テンポスマート 区コード
+# ─────────────────────────────────────────
+TEMPOSMART_AREAS = {
+    '千代田区': ('district', 13, 13101),
+    '中央区':   ('district', 13, 13102),
+    '港区':     ('district', 13, 13103),
+    '新宿区':   ('district', 13, 13104),
+    '文京区':   ('district', 13, 13105),
+    '台東区':   ('district', 13, 13106),
+    '墨田区':   ('district', 13, 13107),
+    '江東区':   ('district', 13, 13108),
+    '品川区':   ('district', 13, 13109),
+    '目黒区':   ('district', 13, 13110),
+    '大田区':   ('district', 13, 13111),
+    '世田谷区': ('district', 13, 13112),
+    '渋谷区':   ('district', 13, 13113),
+    '中野区':   ('district', 13, 13114),
+    '杉並区':   ('district', 13, 13115),
+    '豊島区':   ('district', 13, 13116),
+    '北区':     ('district', 13, 13117),
+    '荒川区':   ('district', 13, 13118),
+    '板橋区':   ('district', 13, 13119),
+    '練馬区':   ('district', 13, 13120),
+    '足立区':   ('district', 13, 13121),
+    '葛飾区':   ('district', 13, 13122),
+    '江戸川区': ('district', 13, 13123),
+    '神奈川県': ('pref', 14, None),
+    '千葉県':   ('pref', 12, None),
+    '埼玉県':   ('pref', 11, None),
+    '山梨県':   ('pref', 19, None),
+    '大阪府':   ('pref', 27, None),
+}
+
+# ─────────────────────────────────────────
+# 居抜き本舗 スラグ
+# ─────────────────────────────────────────
+INUKI_HONPO_SLUGS = {
+    '渋谷区':   'exul=115030',
+    '中央区':   'exul=115065',
+    '港区':     'exul=115008',
+    '目黒区':   'exul=115012',
+    '品川区':   'exul=115598',
+    '千代田区': 'exul=115044',
+    '世田谷区': 'exul=115013',
+    '豊島区':   'exul=115019',
 }
 
 
@@ -38,22 +185,6 @@ def _get(url, retries=2):
             if i == retries:
                 raise
             time.sleep(2)
-
-
-def _find_card(link):
-    """リンク要素から物件カードのコンテナを探す"""
-    card = link
-    for _ in range(10):
-        parent = card.parent
-        if parent is None:
-            break
-        # カードらしき要素（div/article/li）で物件リンクが1つだけ含まれる場合
-        if parent.name in ('div', 'article', 'li', 'section'):
-            prop_links = parent.find_all('a', href=re.compile(r'/rent/\d+|/bukken/bukkens/\d+'))
-            if len(prop_links) == 1:
-                return parent
-        card = parent
-    return link
 
 
 def _extract_rent(text):
@@ -71,23 +202,27 @@ def _extract_station(text):
     return m.group(0) if m else ''
 
 
-# ─────────────────────────────────────────
-# 居抜き市場 (inuki-ichiba.jp)
-# ─────────────────────────────────────────
+def _detect_ward(text):
+    for w in ALL_WARDS:
+        if w in text:
+            return w
+    return None
 
+
+# ─────────────────────────────────────────
+# 居抜き市場
+# ─────────────────────────────────────────
 def scrape_inuki_ichiba():
     base = 'https://www.inuki-ichiba.jp'
     results = []
 
-    for ward, slug in INUKI_WARD_SLUGS.items():
+    for ward, slug in INUKI_ICHIBA_SLUGS.items():
         page = 1
         while page <= 10:
             url = f'{base}/rent/{slug}' + (f'?page={page}' if page > 1 else '')
             try:
                 resp = _get(url)
                 soup = BeautifulSoup(resp.text, 'html.parser')
-
-                # div.property_box が各物件カード
                 cards = soup.find_all('div', class_='property_box')
                 if not cards:
                     break
@@ -101,22 +236,17 @@ def scrape_inuki_ichiba():
                         continue
 
                     text = card.get_text(' ', strip=True)
-
-                    # タイトルは h3.title または最初のリンクテキスト
                     h = card.find(class_='title') or card.find(['h2', 'h3'])
                     title = h.get_text(strip=True) if h else link.get_text(strip=True)
 
-                    # 賃料: "賃料" ラベルの直後の数字
                     rent = ''
                     rent_m = re.search(r'賃料\s*([\d,]+)\s*円', text)
                     if rent_m:
                         rent = rent_m.group(1).replace(',', '') + '円'
 
-                    # 面積
                     area_m = re.search(r'([\d.]+)坪', text)
                     area = area_m.group(0) if area_m else _extract_area(text)
 
-                    # 最寄り駅
                     station_m = re.search(r'(\S+駅)\s*徒歩(\d+)分', text)
                     station = f'{station_m.group(1)} 徒歩{station_m.group(2)}分' if station_m else ''
 
@@ -125,11 +255,12 @@ def scrape_inuki_ichiba():
                     if img_src and not img_src.startswith('http'):
                         img_src = base + img_src
 
+                    detected = _detect_ward(text) or ward
                     results.append({
                         'id':        f'inuki-{m.group(1)}',
                         'title':     title,
-                        'address':   ward,
-                        'ward':      ward,
+                        'address':   detected,
+                        'ward':      detected,
                         'rent':      rent,
                         'area':      area,
                         'station':   station,
@@ -138,7 +269,6 @@ def scrape_inuki_ichiba():
                         'image_url': img_src,
                     })
 
-                # 次ページリンクがなければ終了
                 if not soup.find('a', string=re.compile(r'次|next', re.I)):
                     break
                 page += 1
@@ -155,22 +285,9 @@ def scrape_inuki_ichiba():
 
 
 # ─────────────────────────────────────────
-# 飲食店ドットコム (inshokuten.com)
+# 飲食店.com
 # ─────────────────────────────────────────
-
-# 対象区のregion番号 (調査済み)
-INSHOKUTEN_REGIONS = {
-    '港区':   4,
-    '渋谷区': 6,
-    '千代田区': 10,
-    '中央区': 14,
-    '品川区': 17,
-    '目黒区': 22,
-}
-
-
 def _parse_inshokuten_card(card, base):
-    """a.bukkenItemカードから物件情報を抽出する"""
     m = re.search(r'/bukken/bukkens/(\d+)', card.get('href', ''))
     if not m:
         return None
@@ -178,35 +295,31 @@ def _parse_inshokuten_card(card, base):
     title_tag = card.find(class_='bukkenItem__title')
     title = title_tag.get_text(strip=True) if title_tag else ''
 
-    # テーブルから賃料・面積・最寄り駅・所在地を取得（1行にth+tdが複数ある場合も対応）
     rent = area = station = address = ''
     for tr in card.find_all('tr'):
         ths = tr.find_all('th')
         tds = tr.find_all('td')
-        pairs = list(zip(ths, tds))
-        for th, td in pairs:
+        for th, td in zip(ths, tds):
             label = th.get_text(strip=True)
             value = td.get_text(' ', strip=True)
             if '賃料' in label:
                 bold = td.find(class_='bold')
                 rent = bold.get_text(strip=True) if bold else _extract_rent(value)
-            elif '階数' in label or '面積' in label:
+            elif '面積' in label:
                 area_m = re.search(r'([\d.]+)坪', value)
                 area = area_m.group(0) if area_m else _extract_area(value)
             elif '最寄' in label:
                 spans = [s.get_text(strip=True) for s in td.find_all('span', class_='bold')]
                 if len(spans) >= 2:
-                    mins = spans[1].rstrip('分')
-                    station = f'{spans[0]}駅 徒歩{mins}分'
+                    station = f'{spans[0]}駅 徒歩{spans[1].rstrip("分")}分'
                 else:
-                    station_m = re.search(r'(\S+駅?)\s+徒歩\s*(\d+)分', value)
-                    if station_m:
-                        station = f'{station_m.group(1)} 徒歩{station_m.group(2)}分'
+                    sm = re.search(r'(\S+駅?)\s+徒歩\s*(\d+)分', value)
+                    if sm:
+                        station = f'{sm.group(1)} 徒歩{sm.group(2)}分'
             elif '所在地' in label:
                 address = value
 
-    # 区名を所在地またはタイトルから取得
-    ward = next((w for w in TARGET_WARDS if w in (address + title)), None)
+    ward = _detect_ward(address + title)
     if not ward:
         return None
 
@@ -232,41 +345,33 @@ def _parse_inshokuten_card(card, base):
 def scrape_inshokuten():
     base = 'https://www.inshokuten.com'
     results = []
+    seen_ids = set()
 
-    for ward, region in INSHOKUTEN_REGIONS.items():
+    for ward, (region, area_slug, region_code) in INSHOKUTEN_AREAS.items():
         page = 1
         while page <= 10:
-            if page == 1:
-                url = f'{base}/bukken/kanto/bukkens/list/local-23ward/region-{region}/inuki/'
-            else:
-                url = f'{base}/bukken/kanto/bukkens/list/local-23ward/region-{region}/inuki/?page={page}'
-
+            path = f'{area_slug}/' + (f'region-{region_code}/' if region_code else '')
+            url = (f'{base}/bukken/{region}/bukkens/list/{path}inuki/'
+                   + (f'?page={page}' if page > 1 else ''))
             try:
                 resp = _get(url)
                 soup = BeautifulSoup(resp.text, 'html.parser')
-
                 cards = soup.find_all('a', class_='bukkenItem')
                 if not cards:
                     break
-
                 for card in cards:
                     prop = _parse_inshokuten_card(card, base)
-                    if prop:
+                    if prop and prop['id'] not in seen_ids:
+                        seen_ids.add(prop['id'])
                         results.append(prop)
-
-                # 次ページ確認
-                next_btn = soup.find('a', class_=re.compile(r'next|pagination.*next', re.I))
-                if not next_btn:
-                    next_btn = soup.find('a', string=re.compile(r'次のページ|次へ|›|»'))
+                next_btn = soup.find('a', string=re.compile(r'次のページ|次へ|›|»'))
                 if not next_btn:
                     break
                 page += 1
                 time.sleep(1.5)
-
             except Exception as e:
                 logger.error(f'飲食店.com {ward} p{page}: {e}')
                 break
-
         time.sleep(1)
 
     logger.info(f'飲食店.com: {len(results)}件')
@@ -274,93 +379,70 @@ def scrape_inshokuten():
 
 
 # ─────────────────────────────────────────
-# テンポスマート (temposmart.jp)
+# テンポスマート
 # ─────────────────────────────────────────
-
-TEMPOSMART_WARDS = {
-    '千代田区': 13101,
-    '中央区':   13102,
-    '港区':     13103,
-    '品川区':   13109,
-    '目黒区':   13110,
-    '渋谷区':   13113,
-}
-
-
 def scrape_temposmart():
     base = 'https://www.temposmart.jp'
     results = []
 
-    for ward, code in TEMPOSMART_WARDS.items():
+    for ward, (kind, pref, district) in TEMPOSMART_AREAS.items():
         page = 1
         while page <= 10:
-            url = (
-                f'{base}/estates/pref/13/district/{code}?status=inuki'
-                + (f'&page={page}' if page > 1 else '')
-            )
+            if kind == 'district':
+                base_url = f'{base}/estates/pref/{pref}/district/{district}?status=inuki'
+            else:
+                base_url = f'{base}/estates/pref/{pref}?status=inuki'
+            url = base_url + (f'&page={page}' if page > 1 else '')
+
             try:
                 resp = _get(url)
                 soup = BeautifulSoup(resp.text, 'html.parser')
-
                 cards = soup.find_all('li', class_='estatesMain__estateList--li')
                 if not cards:
                     break
 
                 for card in cards:
-                    # 物件ID・URL
                     id_span = card.find(class_='estateItem__estateId--value')
                     prop_id_num = id_span.get_text(strip=True) if id_span else None
                     if not prop_id_num:
                         link = card.find('a', href=re.compile(r'/estates/\d+'))
                         if not link:
                             continue
-                        m = re.search(r'/estates/(\d+)', link['href'])
-                        prop_id_num = m.group(1) if m else None
+                        mm = re.search(r'/estates/(\d+)', link['href'])
+                        prop_id_num = mm.group(1) if mm else None
                     if not prop_id_num:
                         continue
 
-                    prop_url = f'{base}/estates/{prop_id_num}'
-
-                    # タイトル
                     h3 = card.find('h3', class_='estateItem__estateTitle')
                     title = h3.get_text(strip=True) if h3 else ''
-
-                    text = card.get_text(' ', strip=True)
-
-                    # 居抜き以外はスキップ
                     if 'スケルトン' in title and '居抜き' not in title:
                         continue
 
-                    # 賃料
+                    text = card.get_text(' ', strip=True)
                     rent_m = re.search(r'賃料\s*([\d,]+)\s*円', text)
                     rent = rent_m.group(1).replace(',', '') + '円' if rent_m else _extract_rent(text)
-
-                    # 面積
                     area_m = re.search(r'面積\s*([\d.]+坪)', text)
                     area = area_m.group(1) if area_m else _extract_area(text)
-
-                    # 最寄り駅
                     station_m = re.search(r'最寄駅\s*(\S+駅)\s*徒歩\s*(\d+)分', text)
                     station = f'{station_m.group(1)} 徒歩{station_m.group(2)}分' if station_m else ''
 
-                    # 画像 (data-srcにURLあり)
+                    detected = _detect_ward(text) or ward
                     img = card.find('img', attrs={'data-src': True})
                     img_src = img['data-src'] if img else ''
 
                     results.append({
                         'id':        f'temposmart-{prop_id_num}',
                         'title':     title,
-                        'address':   ward,
-                        'ward':      ward,
+                        'address':   detected,
+                        'ward':      detected,
                         'rent':      rent,
                         'area':      area,
                         'station':   station,
-                        'url':       prop_url,
+                        'url':       f'{base}/estates/{prop_id_num}',
                         'source':    'テンポスマート',
                         'image_url': img_src,
                     })
 
-                # 次ページ確認
                 next_btn = soup.find('a', class_=re.compile(r'next', re.I))
                 if not next_btn:
                     next_btn = soup.find('a', string=re.compile(r'次のページ|次へ|›'))
@@ -380,79 +462,53 @@ def scrape_temposmart():
 
 
 # ─────────────────────────────────────────
-# 居抜き本舗 (inuki-honpo.jp)
+# 居抜き本舗
 # ─────────────────────────────────────────
-
-INUKI_HONPO_WARDS = {
-    '渋谷区':  'exul=115030',
-    '中央区':  'exul=115065',
-    '港区':    'exul=115008',
-    '目黒区':  'exul=115012',
-    '品川区':  'exul=115598',
-    '千代田区':'exul=115044',
-}
-
-
 def scrape_inuki_honpo():
     base = 'https://www.inuki-honpo.jp'
     results = []
 
-    for ward, slug in INUKI_HONPO_WARDS.items():
+    for ward, slug in INUKI_HONPO_SLUGS.items():
         page = 1
         while page <= 10:
             url = f'{base}/rent/{slug}/' + (f'?page={page}' if page > 1 else '')
             try:
                 resp = _get(url)
                 soup = BeautifulSoup(resp.text, 'html.parser')
-
-                # table.bukkenListTable が1物件1テーブル
                 tables = soup.find_all('table', class_='bukkenListTable')
                 if not tables:
                     break
 
                 for table in tables:
-                    # 物件リンク
                     link = table.find('a', href=re.compile(r'/rent/\d+'))
                     if not link:
                         continue
-                    m = re.search(r'/rent/(\d+)', link['href'])
-                    if not m:
+                    mm = re.search(r'/rent/(\d+)', link['href'])
+                    if not mm:
                         continue
 
                     text = table.get_text(' ', strip=True)
-
-                    # タイトル（業態名）
                     title_tag = table.find(class_='bukkenListCat')
                     title = title_tag.get_text(strip=True) if title_tag else link.get_text(strip=True)
-
-                    # 物件番号から住所を含む行を探す
-                    num_tag = table.find(class_='bukkenListNum')
-                    addr_m = re.search(r'(?:渋谷区|中央区|港区|目黒区|品川区|千代田区)[^\s　]+', text)
+                    addr_m = re.search(r'[東京都]?[^\s　]{2,4}[区市町村][^\s　]*', text)
                     address = addr_m.group(0) if addr_m else ward
-
-                    # 最寄り駅（p.bukkenListName）
                     name_tag = table.find(class_='bukkenListName')
                     station = name_tag.get_text(strip=True) if name_tag else ''
-
-                    # 賃料
                     rent_m = re.search(r'([\d,]+)\s*円', text)
                     rent = rent_m.group(1).replace(',', '') + '円' if rent_m else ''
-
-                    # 面積
                     area_m = re.search(r'([\d.]+)坪', text)
                     area = area_m.group(0) if area_m else _extract_area(text)
-
-                    # 画像
                     img = table.find('img', src=re.compile(r'\.(jpg|jpeg|png|webp)', re.I))
                     img_src = img.get('src', '') if img else ''
                     if img_src and not img_src.startswith('http'):
                         img_src = base + img_src
 
+                    detected = _detect_ward(text) or ward
                     results.append({
-                        'id':        f'honpo-{m.group(1)}',
-                        'title':     f'{ward} {title}',
+                        'id':        f'honpo-{mm.group(1)}',
+                        'title':     f'{detected} {title}',
                         'address':   address,
-                        'ward':      ward,
+                        'ward':      detected,
                         'rent':      rent,
                         'area':      area,
                         'station':   station,
@@ -461,7 +517,6 @@ def scrape_inuki_honpo():
                         'image_url': img_src,
                     })
 
-                # 次ページ確認
                 next_btn = soup.find('a', string=re.compile(r'次のページ|次へ|NEXT|›'))
                 if not next_btn:
                     break
@@ -481,7 +536,6 @@ def scrape_inuki_honpo():
 # ─────────────────────────────────────────
 # まとめて実行
 # ─────────────────────────────────────────
-
 def run_all():
     props = []
     props += scrape_inuki_ichiba()

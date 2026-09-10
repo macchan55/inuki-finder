@@ -9,21 +9,26 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS properties (
-        id          TEXT PRIMARY KEY,
-        title       TEXT,
-        address     TEXT,
-        ward        TEXT,
-        rent        TEXT,
-        area        TEXT,
-        station     TEXT,
-        url         TEXT,
-        source      TEXT,
-        image_url   TEXT,
-        created_at  TEXT NOT NULL,
-        fetched_at  TEXT NOT NULL
+        id            TEXT PRIMARY KEY,
+        title         TEXT,
+        address       TEXT,
+        ward          TEXT,
+        rent          TEXT,
+        area          TEXT,
+        station       TEXT,
+        url           TEXT,
+        source        TEXT,
+        image_url     TEXT,
+        luxury_score  REAL,
+        created_at    TEXT NOT NULL,
+        fetched_at    TEXT NOT NULL
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_ward ON properties(ward)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_created ON properties(created_at DESC)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_luxury ON properties(luxury_score DESC)')
+    existing = [row[1] for row in c.execute('PRAGMA table_info(properties)').fetchall()]
+    if 'luxury_score' not in existing:
+        c.execute('ALTER TABLE properties ADD COLUMN luxury_score REAL')
     conn.commit()
     conn.close()
 
@@ -33,20 +38,21 @@ def upsert_property(prop):
     now = datetime.now().isoformat()
     conn.execute('''
         INSERT INTO properties
-            (id, title, address, ward, rent, area, station, url, source, image_url, created_at, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, title, address, ward, rent, area, station, url, source, image_url, luxury_score, created_at, fetched_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
-            title      = excluded.title,
-            address    = excluded.address,
-            rent       = excluded.rent,
-            area       = excluded.area,
-            station    = excluded.station,
-            image_url  = excluded.image_url,
-            fetched_at = excluded.fetched_at
+            title        = excluded.title,
+            address      = excluded.address,
+            rent         = excluded.rent,
+            area         = excluded.area,
+            station      = excluded.station,
+            image_url    = excluded.image_url,
+            luxury_score = excluded.luxury_score,
+            fetched_at   = excluded.fetched_at
     ''', (
         prop['id'], prop['title'], prop['address'], prop['ward'],
         prop['rent'], prop['area'], prop['station'], prop['url'],
-        prop['source'], prop.get('image_url', ''), now, now
+        prop['source'], prop.get('image_url', ''), prop.get('luxury_score'), now, now
     ))
     conn.commit()
     conn.close()
@@ -84,17 +90,23 @@ def _parse_rent_yen(rent):
     return None
 
 
-def get_properties(ward=None, limit=1000, max_walk=None, min_area=None, max_area=None, max_tsubo_price=None):
+def get_properties(wards=None, limit=2000, max_walk=None, min_area=None, max_area=None,
+                   max_tsubo_price=None, min_luxury=None, sort_by=None):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    if ward and ward != 'all':
+
+    order = 'luxury_score DESC' if sort_by == 'luxury' else 'created_at DESC'
+
+    if wards:
+        placeholders = ','.join('?' * len(wards))
         c.execute(
-            'SELECT * FROM properties WHERE ward = ? ORDER BY created_at DESC LIMIT ?',
-            (ward, limit)
+            f'SELECT * FROM properties WHERE ward IN ({placeholders}) ORDER BY {order} LIMIT ?',
+            (*wards, limit)
         )
     else:
-        c.execute('SELECT * FROM properties ORDER BY created_at DESC LIMIT ?', (limit,))
+        c.execute(f'SELECT * FROM properties ORDER BY {order} LIMIT ?', (limit,))
+
     rows = c.fetchall()
     conn.close()
 
@@ -117,6 +129,10 @@ def get_properties(ward=None, limit=1000, max_walk=None, min_area=None, max_area
             continue
         if max_tsubo_price is not None and d['tsubo_price'] is not None and d['tsubo_price'] > max_tsubo_price:
             continue
+        if min_luxury is not None:
+            ls = d.get('luxury_score') or 0.0
+            if ls < min_luxury:
+                continue
 
         result.append(d)
 

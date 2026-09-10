@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>都内 居抜き物件ファインダー</title>
+  <title>関東・大阪 居抜き物件ファインダー</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -11,8 +11,6 @@
       background: #f4f5f7;
       color: #333;
     }
-
-    /* ヘッダー */
     header {
       background: #1a1a2e;
       color: #fff;
@@ -25,218 +23,170 @@
     }
     header h1 { font-size: 1.3rem; font-weight: 700; }
     .header-meta { font-size: 0.8rem; opacity: 0.7; }
-
-    /* 更新ボタン */
     .btn-scrape {
-      background: #e94560;
-      color: #fff;
-      border: none;
-      padding: 8px 18px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 600;
+      background: #e94560; color: #fff; border: none;
+      padding: 8px 18px; border-radius: 6px; cursor: pointer;
+      font-size: 0.85rem; font-weight: 600;
     }
     .btn-scrape:disabled { background: #888; cursor: not-allowed; }
 
-    /* 区フィルター */
-    .filters {
+    /* サイドバーレイアウト */
+    .layout { display: flex; align-items: flex-start; }
+    .sidebar {
+      width: 220px;
+      min-width: 220px;
       background: #fff;
-      padding: 14px 24px;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      border-bottom: 1px solid #e0e0e0;
+      border-right: 1px solid #e0e0e0;
+      padding: 16px;
       position: sticky;
       top: 0;
-      z-index: 10;
-      box-shadow: 0 2px 6px rgba(0,0,0,.06);
+      height: 100vh;
+      overflow-y: auto;
     }
-    .filter-btn {
-      padding: 6px 14px;
-      border-radius: 20px;
-      border: 2px solid #ddd;
-      background: #fff;
-      color: #555;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all .15s;
-    }
-    .filter-btn:hover { border-color: #1a1a2e; color: #1a1a2e; }
-    .filter-btn.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+    .main { flex: 1; min-width: 0; }
 
-    /* 詳細フィルター */
-    .detail-filters {
-      background: #f8f9fa;
-      padding: 12px 24px;
-      border-bottom: 1px solid #e0e0e0;
+    .sidebar-section { margin-bottom: 20px; }
+    .sidebar-section h3 {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 10px;
+    }
+
+    /* エリアチェックボックス */
+    .area-list { display: flex; flex-direction: column; gap: 6px; }
+    .area-item { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .area-item input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #1a1a2e; }
+    .area-item label { font-size: 0.85rem; color: #333; cursor: pointer; line-height: 1; }
+    .area-divider { border: none; border-top: 1px solid #eee; margin: 6px 0; }
+
+    /* 数値フィルター */
+    .filter-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .filter-row label { font-size: 0.78rem; font-weight: 600; color: #666; }
+    .filter-row select,
+    .filter-row input[type="number"] {
+      padding: 5px 8px; border: 1px solid #ccc; border-radius: 6px;
+      font-size: 0.82rem; background: #fff; width: 100%;
+    }
+    .filter-row-inline { display: flex; gap: 4px; align-items: center; }
+    .filter-row-inline input { flex: 1; }
+    .filter-row-inline span { font-size: 0.8rem; color: #999; }
+
+    /* 高級スコアチップ */
+    .luxury-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .luxury-chip {
+      padding: 3px 10px; border-radius: 20px;
+      border: 2px solid #d97706; background: #fff;
+      color: #92400e; cursor: pointer; font-size: 0.75rem; font-weight: 600;
+      text-decoration: none; transition: all .15s;
+    }
+    .luxury-chip:hover, .luxury-chip.active { background: #d97706; color: #fff; }
+
+    .btn-apply {
+      width: 100%; padding: 8px; background: #1a1a2e; color: #fff;
+      border: none; border-radius: 6px; cursor: pointer;
+      font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;
+    }
+    .btn-reset {
+      width: 100%; padding: 6px; background: #eee; color: #555;
+      border: none; border-radius: 6px; cursor: pointer;
+      font-size: 0.82rem; text-decoration: none; display: block; text-align: center;
+    }
+
+    /* メインエリア */
+    .main-header {
+      padding: 12px 20px;
       display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
       align-items: center;
-      font-size: 0.85rem;
-    }
-    .detail-filters label { color: #666; font-weight: 600; }
-    .detail-filters select, .detail-filters input[type="number"] {
-      padding: 5px 8px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 0.82rem;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-bottom: 1px solid #e0e0e0;
       background: #fff;
-      width: 110px;
     }
-    .detail-filters .filter-group { display: flex; align-items: center; gap: 6px; }
-    .btn-filter {
-      padding: 6px 14px;
-      background: #1a1a2e;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.82rem;
-      font-weight: 600;
-    }
-    .btn-reset-filter {
-      padding: 6px 10px;
-      background: #eee;
-      color: #555;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.82rem;
+    .result-info { font-size: 0.85rem; color: #666; }
+    .sort-row { display: flex; gap: 8px; align-items: center; }
+    .sort-row label { font-size: 0.82rem; color: #666; font-weight: 600; }
+    .sort-row select {
+      padding: 5px 8px; border: 1px solid #ccc; border-radius: 6px;
+      font-size: 0.82rem; background: #fff;
     }
 
-    /* 物件数 */
-    .result-info {
-      padding: 12px 24px;
-      font-size: 0.85rem;
-      color: #666;
-    }
-
-    /* グリッド */
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 16px;
-      padding: 0 24px 32px;
+      padding: 16px 20px 32px;
     }
 
-    /* カード */
     .card {
-      background: #fff;
-      border-radius: 10px;
-      overflow: hidden;
+      background: #fff; border-radius: 10px; overflow: hidden;
       box-shadow: 0 2px 8px rgba(0,0,0,.08);
       transition: transform .15s, box-shadow .15s;
-      display: flex;
-      flex-direction: column;
+      display: flex; flex-direction: column;
     }
     .card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+    .card-luxury { box-shadow: 0 2px 8px rgba(217,119,6,.3), 0 0 0 2px #d97706; }
+    .card-luxury:hover { box-shadow: 0 6px 20px rgba(217,119,6,.4), 0 0 0 2px #d97706; }
 
-    .card-img {
-      width: 100%;
-      height: 180px;
-      object-fit: cover;
-      background: #eee;
-    }
+    .card-img { width: 100%; height: 170px; object-fit: cover; background: #eee; }
     .card-img-placeholder {
-      width: 100%;
-      height: 180px;
+      width: 100%; height: 170px;
       background: linear-gradient(135deg, #e8eaf0, #d0d4e0);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #aaa;
-      font-size: 2rem;
+      display: flex; align-items: center; justify-content: center;
+      color: #aaa; font-size: 2rem;
     }
+    .card-body { padding: 12px; flex: 1; display: flex; flex-direction: column; gap: 7px; }
+    .card-badges { display: flex; gap: 5px; flex-wrap: wrap; }
+    .badge { font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; }
+    .badge-new    { background: #e94560; color: #fff; }
+    .badge-ward   { background: #e8f0fe; color: #1a56db; }
+    .badge-src    { background: #f0fdf4; color: #166534; }
+    .badge-luxury { background: linear-gradient(90deg, #d97706, #f59e0b); color: #fff; }
 
-    .card-body { padding: 14px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
-
-    .card-badges { display: flex; gap: 6px; flex-wrap: wrap; }
-    .badge {
-      font-size: 0.7rem;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 4px;
-    }
-    .badge-new  { background: #e94560; color: #fff; }
-    .badge-ward { background: #e8f0fe; color: #1a56db; }
-    .badge-src  { background: #f0fdf4; color: #166534; }
+    .luxury-score-bar { display: flex; align-items: center; gap: 8px; }
+    .luxury-score-label { font-size: 0.7rem; color: #92400e; font-weight: 700; min-width: 56px; }
+    .luxury-bar-outer { flex: 1; height: 5px; background: #f3e8c0; border-radius: 3px; overflow: hidden; }
+    .luxury-bar-inner { height: 100%; background: linear-gradient(90deg, #d97706, #f59e0b); border-radius: 3px; }
+    .luxury-score-num { font-size: 0.76rem; font-weight: 700; color: #d97706; min-width: 26px; text-align: right; }
 
     .card-title {
-      font-size: 0.9rem;
-      font-weight: 600;
-      line-height: 1.4;
-      color: #222;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      font-size: 0.88rem; font-weight: 600; line-height: 1.4; color: #222;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
-
-    .card-details { display: flex; flex-direction: column; gap: 4px; margin-top: auto; }
-    .detail-row {
-      display: flex;
-      gap: 6px;
-      font-size: 0.8rem;
-      color: #555;
-      align-items: center;
-    }
+    .card-details { display: flex; flex-direction: column; gap: 3px; margin-top: auto; }
+    .detail-row { display: flex; gap: 6px; font-size: 0.78rem; color: #555; align-items: center; }
     .detail-label { color: #999; min-width: 40px; }
     .detail-val { font-weight: 600; color: #333; }
-
-    .rent-val { font-size: 1rem; font-weight: 700; color: #e94560; }
-
+    .rent-val { font-size: 0.98rem; font-weight: 700; color: #e94560; }
     .card-link {
-      display: block;
-      text-align: center;
-      margin-top: 10px;
-      padding: 8px;
-      background: #1a1a2e;
-      color: #fff;
-      text-decoration: none;
-      border-radius: 6px;
-      font-size: 0.82rem;
-      font-weight: 600;
+      display: block; text-align: center; margin-top: 8px; padding: 7px;
+      background: #1a1a2e; color: #fff; text-decoration: none;
+      border-radius: 6px; font-size: 0.8rem; font-weight: 600;
     }
     .card-link:hover { background: #2d2d4e; }
 
-    /* スクレイピング中バナー */
     .scraping-banner {
-      background: #fef9c3;
-      border: 1px solid #fde047;
-      padding: 10px 24px;
-      font-size: 0.85rem;
-      color: #713f12;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      background: #fef9c3; border: 1px solid #fde047;
+      padding: 10px 20px; font-size: 0.85rem; color: #713f12;
+      display: flex; align-items: center; gap: 8px;
     }
     .spinner {
-      width: 14px; height: 14px;
-      border: 2px solid #713f12;
-      border-top-color: transparent;
-      border-radius: 50%;
-      animation: spin .8s linear infinite;
-      display: inline-block;
+      width: 14px; height: 14px; border: 2px solid #713f12;
+      border-top-color: transparent; border-radius: 50%;
+      animation: spin .8s linear infinite; display: inline-block;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* 空状態 */
-    .empty {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 60px 20px;
-      color: #888;
-    }
+    .empty { grid-column: 1/-1; text-align: center; padding: 60px 20px; color: #888; }
     .empty p { margin-top: 8px; font-size: 0.9rem; }
 
-    @media (max-width: 600px) {
-      .grid { padding: 0 12px 24px; }
-      header { padding: 14px 16px; }
-      .filters { padding: 10px 12px; }
+    @media (max-width: 700px) {
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid #e0e0e0; }
+      .grid { padding: 12px; }
     }
   </style>
 </head>
@@ -244,9 +194,9 @@
 
 <header>
   <div>
-    <h1>🍜 都内 居抜き物件ファインダー</h1>
+    <h1>関東・大阪 居抜き物件ファインダー</h1>
     <p class="header-meta">
-      渋谷区・中央区・目黒区・品川区・千代田区・港区
+      東京23区・神奈川県・千葉県・埼玉県・山梨県・大阪市
       {% if last_scraped %}
         ｜ 最終更新: {{ last_scraped[:16].replace('T', ' ') }}
       {% endif %}
@@ -264,136 +214,213 @@
 </div>
 {% elif empty_db %}
 <div class="scraping-banner" style="background:#fef3c7; border-color:#f59e0b; color:#92400e;">
-  ⚠️ まだ物件データがありません。右上の「今すぐ更新」ボタンを押して取得してください。
+  まだ物件データがありません。右上の「今すぐ更新」ボタンを押して取得してください。
 </div>
 {% endif %}
 
-<nav class="filters">
-  <a href="?ward=all" class="filter-btn {% if selected_ward == 'all' %}active{% endif %}">すべて</a>
-  {% for w in wards %}
-  <a href="?ward={{ w }}" class="filter-btn {% if selected_ward == w %}active{% endif %}">{{ w }}</a>
-  {% endfor %}
-</nav>
+<div class="layout">
 
-<form class="detail-filters" method="get" action="">
-  <input type="hidden" name="ward" value="{{ selected_ward }}">
+  <!-- サイドバー -->
+  <aside class="sidebar">
+    <form method="get" action="" id="filterForm">
 
-  <div class="filter-group">
-    <label>徒歩</label>
-    <select name="max_walk">
-      <option value="">制限なし</option>
-      <option value="3" {% if max_walk == 3 %}selected{% endif %}>3分以内</option>
-      <option value="5" {% if max_walk == 5 %}selected{% endif %}>5分以内</option>
-      <option value="7" {% if max_walk == 7 %}selected{% endif %}>7分以内</option>
-      <option value="10" {% if max_walk == 10 %}selected{% endif %}>10分以内</option>
-      <option value="15" {% if max_walk == 15 %}selected{% endif %}>15分以内</option>
-    </select>
-  </div>
-
-  <div class="filter-group">
-    <label>面積</label>
-    <input type="number" name="min_area" placeholder="下限(坪)" min="0" step="0.5" value="{{ min_area }}">
-    <span>〜</span>
-    <input type="number" name="max_area" placeholder="上限(坪)" min="0" step="0.5" value="{{ max_area }}">
-  </div>
-
-  <div class="filter-group">
-    <label>坪単価</label>
-    <input type="number" name="max_tsubo" placeholder="上限(万円/坪)" min="0" value="{{ max_tsubo }}">
-    <span>以下</span>
-  </div>
-
-  <button type="submit" class="btn-filter">絞込</button>
-  <a href="?ward={{ selected_ward }}" class="btn-reset-filter">リセット</a>
-</form>
-
-<div class="result-info">
-  {{ properties|length }} 件表示
-</div>
-
-<div class="grid">
-  {% if properties %}
-    {% for p in properties %}
-    {% set is_new = (p.created_at[:10] >= '2026-04-18') %}
-    <div class="card">
-      {% if p.image_url %}
-        <img class="card-img" src="{{ p.image_url }}" alt="{{ p.title }}" loading="lazy"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-        <div class="card-img-placeholder" style="display:none">🏪</div>
-      {% else %}
-        <div class="card-img-placeholder">🏪</div>
-      {% endif %}
-
-      <div class="card-body">
-        <div class="card-badges">
-          {% if is_new %}<span class="badge badge-new">新着</span>{% endif %}
-          <span class="badge badge-ward">{{ p.ward }}</span>
-          <span class="badge badge-src">{{ p.source }}</span>
+      <div class="sidebar-section">
+        <h3>エリア</h3>
+        <div class="area-list">
+          {% set priority = ['港区','目黒区','渋谷区','世田谷区','品川区','中央区','千代田区','豊島区'] %}
+          {% set others   = ['その他23区','神奈川県','千葉県','埼玉県','山梨県'] %}
+          {% set osaka    = ['大阪 北区','大阪 中央区','大阪 西区','大阪 福島区','大阪 その他'] %}
+          {% for grp in priority %}
+          <label class="area-item">
+            <input type="checkbox" name="areas" value="{{ grp }}"
+              {% if grp in selected_areas %}checked{% endif %}>
+            <label>{{ grp }}</label>
+          </label>
+          {% endfor %}
+          <hr class="area-divider">
+          {% for grp in others %}
+          <label class="area-item">
+            <input type="checkbox" name="areas" value="{{ grp }}"
+              {% if grp in selected_areas %}checked{% endif %}>
+            <label>{{ grp }}</label>
+          </label>
+          {% endfor %}
+          <hr class="area-divider">
+          {% for grp in osaka %}
+          <label class="area-item">
+            <input type="checkbox" name="areas" value="{{ grp }}"
+              {% if grp in selected_areas %}checked{% endif %}>
+            <label>{{ grp }}</label>
+          </label>
+          {% endfor %}
         </div>
+      </div>
 
-        <p class="card-title">{{ p.title }}</p>
-
-        <div class="card-details">
-          {% if p.rent %}
-          <div class="detail-row">
-            <span class="detail-label">賃料</span>
-            <span class="rent-val">{{ p.rent }}</span>
-          </div>
-          {% endif %}
-          {% if p.area %}
-          <div class="detail-row">
-            <span class="detail-label">面積</span>
-            <span class="detail-val">{{ p.area }}</span>
-          </div>
-          {% endif %}
-          {% if p.tsubo_price %}
-          <div class="detail-row">
-            <span class="detail-label">坪単価</span>
-            <span class="detail-val">{{ p.tsubo_price }}万円/坪</span>
-          </div>
-          {% endif %}
-          {% if p.station %}
-          <div class="detail-row">
-            <span class="detail-label">最寄</span>
-            <span class="detail-val">{{ p.station }}</span>
-          </div>
-          {% endif %}
+      <div class="sidebar-section">
+        <h3>条件</h3>
+        <div class="filter-row">
+          <label>徒歩分数</label>
+          <select name="max_walk">
+            <option value="">制限なし</option>
+            <option value="3"  {% if max_walk == 3  %}selected{% endif %}>3分以内</option>
+            <option value="5"  {% if max_walk == 5  %}selected{% endif %}>5分以内</option>
+            <option value="7"  {% if max_walk == 7  %}selected{% endif %}>7分以内</option>
+            <option value="10" {% if max_walk == 10 %}selected{% endif %}>10分以内</option>
+            <option value="15" {% if max_walk == 15 %}selected{% endif %}>15分以内</option>
+          </select>
         </div>
+        <div class="filter-row">
+          <label>面積（坪）</label>
+          <div class="filter-row-inline">
+            <input type="number" name="min_area" placeholder="下限" min="0" step="0.5" value="{{ min_area }}">
+            <span>〜</span>
+            <input type="number" name="max_area" placeholder="上限" min="0" step="0.5" value="{{ max_area }}">
+          </div>
+        </div>
+        <div class="filter-row">
+          <label>坪単価上限（万円/坪）</label>
+          <input type="number" name="max_tsubo" placeholder="例: 30" min="0" value="{{ max_tsubo }}">
+        </div>
+      </div>
 
-        <a class="card-link" href="{{ p.url }}" target="_blank" rel="noopener">詳細を見る →</a>
+      <div class="sidebar-section">
+        <h3>高級内装スコア</h3>
+        <div class="luxury-chips">
+          <a href="#" class="luxury-chip {% if not min_luxury %}active{% endif %}"
+             onclick="setLuxury('');return false;">すべて</a>
+          <a href="#" class="luxury-chip {% if min_luxury == 3.0 %}active{% endif %}"
+             onclick="setLuxury('3');return false;">3以上</a>
+          <a href="#" class="luxury-chip {% if min_luxury == 5.0 %}active{% endif %}"
+             onclick="setLuxury('5');return false;">5以上</a>
+          <a href="#" class="luxury-chip {% if min_luxury == 7.0 %}active{% endif %}"
+             onclick="setLuxury('7');return false;">7以上</a>
+          <a href="#" class="luxury-chip {% if min_luxury == 9.0 %}active{% endif %}"
+             onclick="setLuxury('9');return false;">9以上</a>
+        </div>
+        <input type="hidden" name="min_luxury" id="min_luxury_input" value="{{ min_luxury }}">
+      </div>
+
+      <div class="sidebar-section">
+        <h3>並び順</h3>
+        <select name="sort_by" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.82rem;">
+          <option value="new"    {% if sort_by == 'new'    %}selected{% endif %}>新着順</option>
+          <option value="luxury" {% if sort_by == 'luxury' %}selected{% endif %}>高級スコア順</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn-apply">絞り込む</button>
+      <a href="/" class="btn-reset">リセット</a>
+    </form>
+  </aside>
+
+  <!-- メインコンテンツ -->
+  <div class="main">
+    <div class="main-header">
+      <div class="result-info">
+        <strong>{{ properties|length }}</strong> 件表示
+        {% if selected_areas %} ｜ {{ selected_areas|join('・') }}{% endif %}
+        {% if min_luxury %} ｜ 高級スコア {{ min_luxury|int }}以上{% endif %}
       </div>
     </div>
-    {% endfor %}
-  {% else %}
-    <div class="empty">
-      <div style="font-size:3rem">🔍</div>
-      <p>物件が見つかりません。「今すぐ更新」ボタンを押して取得してください。</p>
+
+    <div class="grid">
+      {% if properties %}
+        {% for p in properties %}
+        {% set is_new = (p.created_at[:10] >= '2026-04-18') %}
+        {% set ls = p.luxury_score or 0 %}
+        {% set is_luxury = ls >= 7 %}
+        <div class="card {% if is_luxury %}card-luxury{% endif %}">
+          {% if p.image_url %}
+            <img class="card-img" src="{{ p.image_url }}" alt="{{ p.title }}" loading="lazy"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="card-img-placeholder" style="display:none">🏪</div>
+          {% else %}
+            <div class="card-img-placeholder">🏪</div>
+          {% endif %}
+
+          <div class="card-body">
+            <div class="card-badges">
+              {% if is_new %}<span class="badge badge-new">新着</span>{% endif %}
+              {% if is_luxury %}<span class="badge badge-luxury">高級内装</span>{% endif %}
+              <span class="badge badge-ward">{{ p.ward }}</span>
+              <span class="badge badge-src">{{ p.source }}</span>
+            </div>
+
+            {% if ls > 0 %}
+            <div class="luxury-score-bar">
+              <span class="luxury-score-label">高級スコア</span>
+              <div class="luxury-bar-outer">
+                <div class="luxury-bar-inner" style="width:{{ (ls / 10 * 100)|round|int }}%"></div>
+              </div>
+              <span class="luxury-score-num">{{ ls }}</span>
+            </div>
+            {% endif %}
+
+            <p class="card-title">{{ p.title }}</p>
+
+            <div class="card-details">
+              {% if p.rent %}
+              <div class="detail-row">
+                <span class="detail-label">賃料</span>
+                <span class="rent-val">{{ p.rent }}</span>
+              </div>
+              {% endif %}
+              {% if p.area %}
+              <div class="detail-row">
+                <span class="detail-label">面積</span>
+                <span class="detail-val">{{ p.area }}</span>
+              </div>
+              {% endif %}
+              {% if p.tsubo_price %}
+              <div class="detail-row">
+                <span class="detail-label">坪単価</span>
+                <span class="detail-val">{{ p.tsubo_price }}万円/坪</span>
+              </div>
+              {% endif %}
+              {% if p.station %}
+              <div class="detail-row">
+                <span class="detail-label">最寄</span>
+                <span class="detail-val">{{ p.station }}</span>
+              </div>
+              {% endif %}
+            </div>
+
+            <a class="card-link" href="{{ p.url }}" target="_blank" rel="noopener">詳細を見る →</a>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty">
+          <div style="font-size:3rem">🔍</div>
+          <p>物件が見つかりません。条件を変えるか「今すぐ更新」ボタンを押してください。</p>
+        </div>
+      {% endif %}
     </div>
-  {% endif %}
+  </div>
 </div>
 
 <script>
+  function setLuxury(val) {
+    document.getElementById('min_luxury_input').value = val;
+    document.querySelectorAll('.luxury-chip').forEach(c => c.classList.remove('active'));
+    event.target.classList.add('active');
+  }
+
   async function triggerScrape() {
     const btn = document.getElementById('scrapeBtn');
     btn.disabled = true;
     btn.textContent = '取得中…';
     await fetch('/api/scrape', { method: 'POST' });
-    // 30秒後にページをリロードして結果を確認
     setTimeout(() => location.reload(), 30000);
   }
 
-  // スクレイピング中なら15秒ごとにステータス確認
   {% if scraping %}
   const check = setInterval(async () => {
     const res = await fetch('/api/status');
     const data = await res.json();
-    if (!data.scraping) {
-      clearInterval(check);
-      location.reload();
-    }
+    if (!data.scraping) { clearInterval(check); location.reload(); }
   }, 15000);
   {% endif %}
 </script>
-
 </body>
 </html>
