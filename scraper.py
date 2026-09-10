@@ -161,6 +161,18 @@ TEMPOSMART_AREAS = {
 }
 
 # ─────────────────────────────────────────
+# テナントショップ 都道府県コード（pa番号）
+# 「居抜き」フィルタ(f1=1)付きで都道府県単位に取得し、
+# 区の振り分けは _detect_ward() に任せる
+# 東京・神奈川・千葉・埼玉・山梨は実サイトで0件だったため対象外
+# （pa番号は判明済み: 東京14/神奈川15/埼玉16/千葉17/山梨29。
+#   将来このサイトに関東の掲載が増えたら追加できる）
+# ─────────────────────────────────────────
+TENANT_SHOP_PREFS = {
+    '大阪府': 1,
+}
+
+# ─────────────────────────────────────────
 # 居抜き本舗 スラグ
 # ─────────────────────────────────────────
 INUKI_HONPO_SLUGS = {
@@ -462,6 +474,87 @@ def scrape_temposmart():
 
 
 # ─────────────────────────────────────────
+# テナントショップ
+# ─────────────────────────────────────────
+def scrape_tenant_shop():
+    base = 'https://www.tenant-shop.jp'
+    results = []
+
+    for label, pref_id in TENANT_SHOP_PREFS.items():
+        page = 1
+        while page <= 10:
+            url = f'{base}/index.php?ac=2&c=12&pa={pref_id}&f1=1&p={page}'
+            try:
+                resp = _get(url)
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                cards = soup.find_all('table', class_='result')
+                if not cards:
+                    break
+
+                for card in cards:
+                    link = card.find('a', href=re.compile(r'^/detail/e-\d+/'))
+                    if not link:
+                        continue
+                    m = re.search(r'/detail/(e-\d+)/', link['href'])
+                    if not m:
+                        continue
+
+                    title_tag = card.find(class_='estatename')
+                    title = title_tag.get_text(strip=True) if title_tag else ''
+
+                    price_tag = card.find(class_='price')
+                    rent_raw = price_tag.get_text(strip=True) if price_tag else ''
+                    rent_m = re.search(r'([\d.]+)万', rent_raw)
+                    rent = f'{rent_m.group(1)}万円' if rent_m else ''
+
+                    area_tag = card.find(class_='area_val')
+                    area = area_tag.get_text(strip=True) if area_tag else ''
+
+                    address = ''
+                    station = ''
+                    for add in card.find_all('div', class_='add'):
+                        img = add.find('img')
+                        src = img.get('src', '') if img else ''
+                        txt = add.get_text(strip=True)
+                        if 'addr' in src:
+                            address = txt
+                        elif 'station' in src:
+                            station = txt
+
+                    photo = card.find(class_='photo')
+                    img_tag = photo.find('img') if photo else None
+                    img_src = img_tag.get('src', '') if img_tag else ''
+                    if img_src and not img_src.startswith('http'):
+                        img_src = base + img_src
+
+                    detected = _detect_ward(address + title) or label
+                    results.append({
+                        'id':        f'tenantshop-{m.group(1)}',
+                        'title':     title,
+                        'address':   address or detected,
+                        'ward':      detected,
+                        'rent':      rent,
+                        'area':      area,
+                        'station':   station,
+                        'url':       f'{base}/detail/{m.group(1)}/',
+                        'source':    'テナントショップ',
+                        'image_url': img_src,
+                    })
+
+                page += 1
+                time.sleep(1.5)
+
+            except Exception as e:
+                logger.error(f'テナントショップ {label} p{page}: {e}')
+                break
+
+        time.sleep(1)
+
+    logger.info(f'テナントショップ: {len(results)}件')
+    return results
+
+
+# ─────────────────────────────────────────
 # 居抜き本舗
 # ─────────────────────────────────────────
 def scrape_inuki_honpo():
@@ -542,5 +635,6 @@ def run_all():
     props += scrape_inshokuten()
     props += scrape_temposmart()
     props += scrape_inuki_honpo()
+    props += scrape_tenant_shop()
     logger.info(f'合計: {len(props)}件取得')
     return props
