@@ -91,21 +91,28 @@ def _parse_rent_yen(rent):
 
 
 def get_properties(wards=None, limit=2000, max_walk=None, min_area=None, max_area=None,
-                   max_tsubo_price=None, min_luxury=None, sort_by=None):
+                   max_tsubo_price=None, min_luxury=None, sort_by=None, keyword=None):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
     order = 'luxury_score DESC' if sort_by == 'luxury' else 'created_at DESC'
 
+    conditions = []
+    params = []
+
     if wards:
         placeholders = ','.join('?' * len(wards))
-        c.execute(
-            f'SELECT * FROM properties WHERE ward IN ({placeholders}) ORDER BY {order} LIMIT ?',
-            (*wards, limit)
-        )
-    else:
-        c.execute(f'SELECT * FROM properties ORDER BY {order} LIMIT ?', (limit,))
+        conditions.append(f'ward IN ({placeholders})')
+        params.extend(wards)
+
+    if keyword:
+        conditions.append('(title LIKE ? OR address LIKE ? OR station LIKE ? OR ward LIKE ?)')
+        like = f'%{keyword}%'
+        params.extend([like, like, like, like])
+
+    where = f'WHERE {" AND ".join(conditions)}' if conditions else ''
+    c.execute(f'SELECT * FROM properties {where} ORDER BY {order} LIMIT ?', (*params, limit))
 
     rows = c.fetchall()
     conn.close()

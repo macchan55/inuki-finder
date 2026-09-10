@@ -66,7 +66,8 @@
     .filter-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
     .filter-row label { font-size: 0.78rem; font-weight: 600; color: #666; }
     .filter-row select,
-    .filter-row input[type="number"] {
+    .filter-row input[type="number"],
+    .filter-row input[type="text"] {
       padding: 5px 8px; border: 1px solid #ccc; border-radius: 6px;
       font-size: 0.82rem; background: #fff; width: 100%;
     }
@@ -223,6 +224,13 @@
   <!-- サイドバー -->
   <aside class="sidebar">
     <form method="get" action="" id="filterForm">
+
+      <div class="sidebar-section">
+        <h3>フリーワード</h3>
+        <div class="filter-row">
+          <input type="text" name="keyword" placeholder="物件名・住所・駅名で検索" value="{{ keyword }}">
+        </div>
+      </div>
 
       <div class="sidebar-section">
         <h3>エリア</h3>

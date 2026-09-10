@@ -65,6 +65,7 @@ def index():
     max_tsubo = request.args.get('max_tsubo', type=int)
     min_luxury_val = request.args.get('min_luxury', type=float)
     sort_by   = request.args.get('sort_by', 'new')
+    keyword   = request.args.get('keyword', '').strip()
 
     # 選択されたグループ名に対応するwardリストを展開
     target_wards = None
@@ -81,6 +82,7 @@ def index():
         max_tsubo_price=max_tsubo,
         min_luxury=min_luxury_val,
         sort_by='luxury' if sort_by == 'luxury' else None,
+        keyword=keyword or None,
     )
 
     last_scraped = database.get_last_scraped()
@@ -98,6 +100,7 @@ def index():
         max_tsubo=max_tsubo or '',
         min_luxury=min_luxury_val or '',
         sort_by=sort_by,
+        keyword=keyword,
     )
 
 
